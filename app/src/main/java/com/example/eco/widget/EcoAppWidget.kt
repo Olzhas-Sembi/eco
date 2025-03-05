@@ -30,7 +30,6 @@ class EcoAppWidget : GlanceAppWidget() {
             aqi <= 100 -> Color(0xFFFFEB3B)
             else -> Color(0xFFFF5722)
         }
-
         provideContent {
             GlanceTheme {
                 Box(
