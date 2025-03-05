@@ -16,7 +16,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.eco.ui.components.AirQualityAnimation
-
+//some changes
 @Composable
 fun CityCard(city: City, navController: NavController) {
     var isVisible by remember { mutableStateOf(false) }
