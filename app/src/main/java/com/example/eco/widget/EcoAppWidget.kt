@@ -3,64 +3,63 @@ package com.example.eco.widget
 import android.content.Context
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.glance.*
 import androidx.glance.appwidget.*
 import androidx.glance.layout.*
 import androidx.glance.text.*
 import androidx.glance.unit.ColorProvider
-import kotlin.random.Random
+import com.example.eco.api.ApiClient
+import kotlinx.coroutines.*
 
 class EcoAppWidget : GlanceAppWidget() {
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val cities = listOf(
-            "Алматы" to 135,
-            "Астана" to 60,
-            "Шымкент" to 22,
-            "Костанай" to 10,
-            "Актобе" to 30
-        )
+        val cityName = "Алматы"  // Можно изменить или сделать динамическим
+        var aqi: Int? = null
 
-        val randomCity = cities[Random.nextInt(cities.size)]
-        val cityName = randomCity.first
-        val aqi = randomCity.second
+        withContext(Dispatchers.IO) {
+            try {
+                val cityData = ApiClient.retrofit.getCityCoordinates(cityName)
+                if (cityData.isNotEmpty()) {
+                    val lat = cityData[0].lat
+                    val lon = cityData[0].lon
 
-        val aqiColor = when {
-            aqi <= 50 -> Color(0xFF4CAF50)
-            aqi <= 100 -> Color(0xFFFFEB3B)
-            else -> Color(0xFFFF5722)
+                    val airQualityData = ApiClient.retrofit.getAirQuality(lat, lon)
+                    aqi = airQualityData.list.firstOrNull()?.main?.aqi
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
+
         provideContent {
             GlanceTheme {
-                Box(
-                    modifier = GlanceModifier.fillMaxSize()
-                        .background(ColorProvider(Color(0xFFBBDEFB)))
-                        .padding(8.dp)
+                Column(
+                    modifier = GlanceModifier
+                        .fillMaxSize()
+                        .background(ColorProvider(Color.White)) // Фон белый
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(
-                        modifier = GlanceModifier.fillMaxWidth()
-                            .background(ColorProvider(Color.White))
-                            .padding(16.dp)
-                            .cornerRadius(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = cityName,
-                            style = TextStyle(
-                                color = ColorProvider(Color.Black),
-                                fontSize = 18.sp
+                    Text(
+                        text = "Город: $cityName",
+                        style = TextStyle(color = ColorProvider(Color.Black))
+                    )
+                    Text(
+                        text = "AQI: ${aqi ?: "Ошибка"}",
+                        style = TextStyle(
+                            color = ColorProvider(
+                                when (aqi) {
+                                    1 -> Color(0xFF00E400) // Зеленый (очень хороший)
+                                    2 -> Color(0xFFFFFF00) // Желтый (хороший)
+                                    3 -> Color(0xFFFFA500) // Оранжевый (умеренный)
+                                    4 -> Color(0xFFFF0000) // Красный (вредный)
+                                    5 -> Color(0xFF7E0023) // Бордовый (очень вредный)
+                                    else -> Color(0xFF000000) // Черный (ошибка)
+                                }
                             )
                         )
-                        Spacer(modifier = GlanceModifier.height(8.dp))
-                        Text(
-                            text = "AQI: $aqi",
-                            style = TextStyle(
-                                color = ColorProvider(aqiColor),
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                    }
+                    )
                 }
             }
         }
