@@ -21,8 +21,6 @@ test:
   artifacts:
     paths:
       - app/build/reports/tests/
-  tags:
-    - docker
 
 build:
   stage: build
@@ -31,5 +29,3 @@ build:
   artifacts:
     paths:
       - app/build/outputs/apk/debug/*.apk
-  tags:
-    - docker
