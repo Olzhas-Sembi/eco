@@ -1,17 +1,14 @@
-image: ghcr.io/cirruslabs/android-sdk:34  # Единый образ для всех этапов
+image: ubuntu:22.04
 
 variables:
-  PROJECT_NAME: "AVTOBYS KOTLIN DRIVER BOARD APP"
-  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
-  CI_SCRIPT_URL: "https://git-server.innoforce.kz/innopay/innoforce-ci-scripts/raw/v2.4"
-  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"  # Унифицированный путь
-  ANDROID_HOME: "/opt/android-sdk-linux"  # Явное указание пути к SDK
+  ANDROID_HOME: "/usr/local/android-sdk"
+  ANDROID_SDK_TOOLS: "9477386"
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
 
 stages:
+  - setup
   - test
-  - move-task-to-ready
   - build
-  - move-task-to-test
 
 cache:
   key: "$CI_COMMIT_REF_SLUG"
@@ -20,115 +17,41 @@ cache:
     - .gradle/caches
     - $ANDROID_HOME
 
-.branches_template: &branches_template
-  before_script:
-    - export ENVIRONMENT=$(echo "$CI_COMMIT_REF_NAME" | tr '[:lower:]' '[:upper:]')
-    - export BASE_URL="https://api.${ENVIRONMENT,,}.avtobys.kz"
-    - sed -i "s/COUNTRY_VALUE/${COUNTRY}/g" app/build.gradle.kts
-    - if [[ $COUNTRY == "KK" ]]; then
-      sed -i "s/APPLICATION_ID/kz.avtobys.driverboard/g" app/build.gradle.kts;
-      sed -i "s/APPLICATION_NAME/Avtobys-driverBoard/g" app/build.gradle.kts;
-      sed -i "s/LAUNCHER_ICON/@drawable\/ic_launcher_kz/g" app/build.gradle.kts;
-      elif [[ $COUNTRY == "KY" ]]; then
-      sed -i "s/APPLICATION_ID/ky.eldikpay.driverboard/g" app/build.gradle.kts;
-      sed -i "s/APPLICATION_NAME/Eldikpay-driverBoard/g" app/build.gradle.kts;
-      sed -i "s/LAUNCHER_ICON/@mipmap\/ic_launcher_ky/g" app/build.gradle.kts;
-      fi
-    - chmod +x ./gradlew
-  only:
-    - alpha
-    - beta
-    - prod
+before_script:
+  - apt-get update -qq && apt-get install -y -qq wget unzip openjdk-17-jdk
+  - chmod +x ./gradlew
+
+setup_android:
+  stage: setup
   tags: []
+  script:
+    - mkdir -p $ANDROID_HOME
+    - wget -q https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_TOOLS}_latest.zip -O /tmp/tools.zip
+    - unzip -q /tmp/tools.zip -d $ANDROID_HOME
+    - mv $ANDROID_HOME/cmdline-tools $ANDROID_HOME/latest
+    - mkdir -p $ANDROID_HOME/cmdline-tools
+    - mv $ANDROID_HOME/latest $ANDROID_HOME/cmdline-tools
+    - yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+    - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+    - echo "sdk.dir=$ANDROID_HOME" > local.properties
+    - export PATH=$PATH:$ANDROID_HOME/platform-tools
 
 test:
-  <<: *branches_template
   stage: test
+  tags: []
+  needs: ["setup_android"]
   script:
-    - echo "sdk.dir=$ANDROID_HOME" > local.properties
-    - ./gradlew clean assembleDevDebug
+    - ./gradlew clean test
   artifacts:
     paths:
       - app/build/reports/tests/
-  except:
-    - tags
-
-test-jira-task:
-  stage: test
-  script:
-    - echo ${CI_COMMIT_REF_NAME} ${CI_PROJECT_NAME} ${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}
-    - wget -O - "${CI_SCRIPT_URL}/test-jira-task.sh" | bash -s AV ${CI_COMMIT_REF_NAME} ${CI_PROJECT_NAME} ${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}
-  only:
-    - merge_requests
-
-move-task-to-ready:
-  stage: move-task-to-ready
-  <<: *branches_template
-  script:
-    - wget -O - "${CI_SCRIPT_URL}/move-task-to-ready.sh" | bash -s AV $CI_COMMIT_REF_NAME
 
 build:
   stage: build
-  <<: *branches_template
+  tags: []
+  needs: ["setup_android"]
   script:
-    - echo "sdk.dir=$ANDROID_HOME" > local.properties
-    - ./gradlew clean assemble${ENVIRONMENT^}Debug
-    - if [[ $COUNTRY == "KK" ]]; then
-      /opt/android-sdk-linux/build-tools/34.0.0/apksigner sign \
-      --ks keystore/release-keystore.jks \
-      --ks-key-alias china-system-rom-key \
-      --ks-pass env:GITLAB_KEYSTORE_PASS \
-      --key-pass env:GITLAB_KEY_PASS \
-      --out kotlin-driver-board-${ENVIRONMENT}-${CI_COMMIT_REF_NAME}-kz.apk \
-      app/build/outputs/apk/${ENVIRONMENT,,}/debug/app-${ENVIRONMENT,,}-debug.apk;
-      elif [[ $COUNTRY == "KY" ]]; then
-      /opt/android-sdk-linux/build-tools/34.0.0/apksigner sign \
-      --ks keystore/release-keystore-ky.jks \
-      --ks-key-alias kyrgyz-system-rom-key \
-      --ks-pass env:GITLAB_KEYSTORE_PASS \
-      --key-pass env:GITLAB_KEY_PASS \
-      --out kotlin-driver-board-${ENVIRONMENT}-${CI_COMMIT_REF_NAME}-ky.apk \
-      app/build/outputs/apk/${ENVIRONMENT,,}/debug/app-${ENVIRONMENT,,}-debug.apk;
-      fi
+    - ./gradlew clean assembleDebug
   artifacts:
-    expire_in: 90 days
     paths:
-      - ./*.apk
-  when: manual
-
-move-task-to-test:
-  stage: move-task-to-test
-  <<: *branches_template
-  script:
-    - wget -O - "${CI_SCRIPT_URL}/move-task-to-test.sh" | bash -s AV $ENVIRONMENT
-
-build-prod:
-  stage: build
-  script:
-    - export ENVIRONMENT=PROD
-    - echo "sdk.dir=$ANDROID_HOME" > local.properties
-    - ./gradlew clean assembleProdRelease
-    - if [[ $COUNTRY == "KK" ]]; then
-      /opt/android-sdk-linux/build-tools/34.0.0/apksigner sign \
-      --ks keystore/release-keystore.jks \
-      --ks-key-alias china-system-rom-key \
-      --ks-pass env:GITLAB_KEYSTORE_PASS \
-      --key-pass env:GITLAB_KEY_PASS \
-      --out kotlin-driver-board-prod-${CI_COMMIT_REF_NAME}-signed-kz.apk \
-      app/build/outputs/apk/prod/release/app-prod-release-unsigned.apk;
-      elif [[ $COUNTRY == "KY" ]]; then
-      /opt/android-sdk-linux/build-tools/34.0.0/apksigner sign \
-      --ks keystore/release-keystore-ky.jks \
-      --ks-key-alias kyrgyz-system-rom-key \
-      --ks-pass env:GITLAB_KEYSTORE_PASS \
-      --key-pass env:GITLAB_KEY_PASS \
-      --out kotlin-driver-board-prod-${CI_COMMIT_REF_NAME}-signed-ky.apk \
-      app/build/outputs/apk/prod/release/app-prod-release-unsigned.apk;
-      fi
-  artifacts:
-    expire_in: 90 days
-    paths:
-      - ./*.apk
-  only:
-    - tags
-  when: manual
+      - app/build/outputs/apk/debug/*.apk
