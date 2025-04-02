@@ -18,12 +18,11 @@ cache:
     - $ANDROID_HOME
 
 before_script:
-  - apt-get update -qq && apt-get install -y -qq wget unzip openjdk-17-jdk
+  - apt-get update -qq && apt-get install -y -qq wget unzip openjdk-17-jdk expect
   - chmod +x ./gradlew
 
 setup_android:
   stage: setup
-  tags: []
   script:
     - mkdir -p $ANDROID_HOME
     - wget -q https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_TOOLS}_latest.zip -O /tmp/tools.zip
@@ -31,14 +30,30 @@ setup_android:
     - mv $ANDROID_HOME/cmdline-tools $ANDROID_HOME/latest
     - mkdir -p $ANDROID_HOME/cmdline-tools
     - mv $ANDROID_HOME/latest $ANDROID_HOME/cmdline-tools
-    - yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-    - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+    # Фикс для автоматического принятия лицензий
+    - touch ~/.android/repositories.cfg
+    - /bin/bash -c "
+      echo 'y' | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null 2>&1
+      if [ $? -ne 0 ]; then
+      echo 'Не удалось автоматически принять лицензии, пробуем через expect'
+      apt-get install -y -qq expect
+      /usr/bin/expect -c '
+      set timeout -1;
+      spawn $env(ANDROID_HOME)/cmdline-tools/latest/bin/sdkmanager --licenses;
+      expect {
+      \"Accept? (y/N):\" { exp_send \"y\r\"; exp_continue }
+      eof
+      }
+      '
+      fi"
+
+    - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
     - echo "sdk.dir=$ANDROID_HOME" > local.properties
     - export PATH=$PATH:$ANDROID_HOME/platform-tools
 
 test:
   stage: test
-  tags: []
   needs: ["setup_android"]
   script:
     - ./gradlew clean test
@@ -48,7 +63,6 @@ test:
 
 build:
   stage: build
-  tags: []
   needs: ["setup_android"]
   script:
     - ./gradlew clean assembleDebug
