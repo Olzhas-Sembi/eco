@@ -1,8 +1,5 @@
 image: openjdk:17-jdk
 
-variables:
-  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
-
 stages:
   - test
   - build
@@ -24,11 +21,8 @@ test:
   artifacts:
     paths:
       - app/build/reports/tests/
-  only:
-    - merge_requests
-    - main
   tags:
-    - android
+    - docker
 
 build:
   stage: build
@@ -37,7 +31,5 @@ build:
   artifacts:
     paths:
       - app/build/outputs/apk/debug/*.apk
-  only:
-    - main
   tags:
-    - android
+    - docker
