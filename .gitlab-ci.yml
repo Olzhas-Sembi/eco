@@ -6,18 +6,22 @@ variables:
   CI: "true"
 
 stages:
-  - prepare
+  - setup
   - test
   - build
 
 before_script:
-  - apt-get update -yq && apt-get install -yq wget unzip openjdk-17-jdk
+  - apt-get update -yq
+  - apt-get install -yq wget unzip openjdk-17-jdk
   - chmod +x ./gradlew
   - mkdir -p $ANDROID_HOME
   - wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O /tmp/tools.zip
   - unzip -q /tmp/tools.zip -d $ANDROID_HOME
-  - yes | $ANDROID_HOME/cmdline-tools/bin/sdkmanager --licenses >/dev/null
-  - $ANDROID_HOME/cmdline-tools/bin/sdkmanager "platforms;android-33" "build-tools;33.0.2" >/dev/null
+  - mv $ANDROID_HOME/cmdline-tools $ANDROID_HOME/latest
+  - mkdir -p $ANDROID_HOME/cmdline-tools
+  - mv $ANDROID_HOME/latest $ANDROID_HOME/cmdline-tools/latest
+  - yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses >/dev/null
+  - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-33" "build-tools;33.0.2" >/dev/null
 
 test:
   stage: test
