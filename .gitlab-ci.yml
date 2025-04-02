@@ -1,40 +1,54 @@
 image: ghcr.io/cirruslabs/android-sdk:34
 
+variables:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Xmx2048m"
+  ANDROID_HOME: "/opt/android-sdk-linux"
+  CI: "true"
+
 stages:
   - test
   - build
 
-variables:
-  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
-
 cache:
+  key: "$CI_COMMIT_REF_SLUG"
   paths:
     - .gradle/wrapper
     - .gradle/caches
+    - $ANDROID_HOME
 
 before_script:
   - export GRADLE_USER_HOME=$CI_PROJECT_DIR/.gradle
   - chmod +x ./gradlew
   - echo "sdk.dir=$ANDROID_HOME" > local.properties
+  - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
+  - yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null 2>&1
 
 test:
   stage: test
   script:
-    - ./gradlew clean test
+    - ./gradlew clean test --stacktrace --no-daemon
   artifacts:
     reports:
-      junit: app/build/test-results//*.xml
+      junit: app/build/test-results/**/TEST-*.xml
+    paths:
+      - app/build/reports/tests/
   except:
     - tags
 
 build:
   stage: build
   script:
-    - ./gradlew clean assembleRelease
+    - ./gradlew clean assembleRelease --stacktrace --no-daemon
+    - apk_path=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
+    - if [ -f "$apk_path" ]; then
+      apk_name=$(basename "$apk_path")
+      mv "$apk_path" "app/build/outputs/apk/${CI_PROJECT_NAME}-${CI_COMMIT_SHORT_SHA}.apk"
+      fi
   artifacts:
     paths:
-      - app/build/outputs/apk//*.apk
-    expire_in: 1 week
+      - app/build/outputs/apk/*.apk
+    expire_in: 4 weeks
   only:
+    - main
     - master
     - tags
