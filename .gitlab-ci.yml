@@ -1,8 +1,9 @@
-image: ubuntu:22.04  # Используем базовый образ с wget
+image: ubuntu:22.04
 
 variables:
   ANDROID_HOME: "/usr/local/android-sdk"
   ANDROID_SDK_TOOLS: "9477386"
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
 
 stages:
   - setup
@@ -10,6 +11,7 @@ stages:
   - build
 
 cache:
+  key: "$CI_COMMIT_REF_SLUG"
   paths:
     - .gradle/wrapper
     - .gradle/caches
@@ -17,11 +19,12 @@ cache:
 
 before_script:
   - apt-get update -qq && apt-get install -y -qq wget unzip openjdk-17-jdk
-  - export GRADLE_USER_HOME=$CI_PROJECT_DIR/.gradle
   - chmod +x ./gradlew
 
 setup_android:
   stage: setup
+  tags:
+    - docker  # или другой тег вашего runner'а
   script:
     - mkdir -p $ANDROID_HOME
     - wget -q https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_TOOLS}_latest.zip -O /tmp/tools.zip
@@ -36,6 +39,8 @@ setup_android:
 
 test:
   stage: test
+  tags:
+    - docker
   needs: ["setup_android"]
   script:
     - ./gradlew clean test
@@ -45,6 +50,8 @@ test:
 
 build:
   stage: build
+  tags:
+    - docker
   needs: ["setup_android"]
   script:
     - ./gradlew clean assembleDebug
