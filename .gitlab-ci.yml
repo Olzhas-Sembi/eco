@@ -1,8 +1,8 @@
-image: openjdk:17-jdk
+image: ubuntu:22.04  # Используем базовый образ с wget
 
 variables:
   ANDROID_HOME: "/usr/local/android-sdk"
-  ANDROID_SDK_TOOLS: "9477386" # Версия tools (ноябрь 2023)
+  ANDROID_SDK_TOOLS: "9477386"
 
 stages:
   - setup
@@ -16,6 +16,7 @@ cache:
     - $ANDROID_HOME
 
 before_script:
+  - apt-get update -qq && apt-get install -y -qq wget unzip openjdk-17-jdk
   - export GRADLE_USER_HOME=$CI_PROJECT_DIR/.gradle
   - chmod +x ./gradlew
 
