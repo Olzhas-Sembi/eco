@@ -31,18 +31,14 @@ setup_android:
   script:
     - mkdir -p $ANDROID_HOME ~/.android
     - touch ~/.android/repositories.cfg
-
     - wget -q https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_TOOLS}_latest.zip -O /tmp/tools.zip
     - unzip -q /tmp/tools.zip -d $ANDROID_HOME
     - mv $ANDROID_HOME/cmdline-tools $ANDROID_HOME/latest
     - mkdir -p $ANDROID_HOME/cmdline-tools
     - mv $ANDROID_HOME/latest $ANDROID_HOME/cmdline-tools/latest
-
     - yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null 2>&1 || true
-
     - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
     - export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
-
     - ./gradlew wrapper --gradle-version 8.7 --distribution-type all
 
 build:
