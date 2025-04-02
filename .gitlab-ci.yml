@@ -2,50 +2,32 @@ image: ubuntu:22.04
 
 variables:
   ANDROID_HOME: "/usr/local/android-sdk"
-  ANDROID_SDK_TOOLS: "9477386"
-  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
-  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Xmx2048m"
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
   CI: "true"
 
 stages:
-  - setup
+  - prepare
+  - test
   - build
 
-cache:
-  key: "$CI_COMMIT_REF_SLUG"
-  paths:
-    - .gradle/wrapper
-    - .gradle/caches
-    - $ANDROID_HOME
-
 before_script:
-  - apt-get update -y
-  - apt-get install -y wget unzip openjdk-17-jdk
+  - apt-get update -yq && apt-get install -yq wget unzip openjdk-17-jdk
   - chmod +x ./gradlew
-  - rm -rf .gradle/caches
-  - rm -rf build
+  - mkdir -p $ANDROID_HOME
+  - wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O /tmp/tools.zip
+  - unzip -q /tmp/tools.zip -d $ANDROID_HOME
+  - yes | $ANDROID_HOME/cmdline-tools/bin/sdkmanager --licenses >/dev/null
+  - $ANDROID_HOME/cmdline-tools/bin/sdkmanager "platforms;android-33" "build-tools;33.0.2" >/dev/null
 
-setup_android:
-  stage: setup
+test:
+  stage: test
   script:
-    - mkdir -p $ANDROID_HOME ~/.android
-    - touch ~/.android/repositories.cfg
-    - wget -q https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_TOOLS}_latest.zip -O /tmp/tools.zip
-    - unzip -q /tmp/tools.zip -d $ANDROID_HOME
-    - mv $ANDROID_HOME/cmdline-tools $ANDROID_HOME/latest
-    - mkdir -p $ANDROID_HOME/cmdline-tools
-    - mv $ANDROID_HOME/latest $ANDROID_HOME/cmdline-tools/latest
-    - yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-    - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-    - echo "sdk.dir=$ANDROID_HOME" > local.properties
-    - export PATH=$PATH:$ANDROID_HOME/platform-tools
-    - ./gradlew wrapper --gradle-version 8.7 --distribution-type all
+    - ./gradlew test --no-daemon
 
 build:
   stage: build
-  needs: ["setup_android"]
   script:
-    - ./gradlew clean assembleDebug --stacktrace --no-daemon --warning-mode all
+    - ./gradlew assembleDebug --stacktrace --no-daemon
   artifacts:
     paths:
       - app/build/outputs/apk/debug/
