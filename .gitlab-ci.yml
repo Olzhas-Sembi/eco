@@ -4,7 +4,7 @@ variables:
   ANDROID_HOME: "/usr/local/android-sdk"
   ANDROID_SDK_TOOLS: "9477386"
   GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
-  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Xmx2048m"
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Xmx2048m"
   CI: "true"
 
 stages:
@@ -17,14 +17,13 @@ cache:
     - .gradle/wrapper
     - .gradle/caches
     - $ANDROID_HOME
-  policy: pull-push
 
 before_script:
-  - apt-get update -qq
-  - apt-get install -y -qq wget unzip openjdk-17-jdk
+  - apt-get update -y
+  - apt-get install -y wget unzip openjdk-17-jdk
   - chmod +x ./gradlew
-  - rm -rf "$GRADLE_USER_HOME/caches"
-  - rm -rf "$CI_PROJECT_DIR/build"
+  - rm -rf .gradle/caches
+  - rm -rf build
 
 setup_android:
   stage: setup
@@ -36,24 +35,18 @@ setup_android:
     - mv $ANDROID_HOME/cmdline-tools $ANDROID_HOME/latest
     - mkdir -p $ANDROID_HOME/cmdline-tools
     - mv $ANDROID_HOME/latest $ANDROID_HOME/cmdline-tools/latest
-    - yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null 2>&1 || true
-    - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
-    - export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+    - yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+    - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+    - echo "sdk.dir=$ANDROID_HOME" > local.properties
+    - export PATH=$PATH:$ANDROID_HOME/platform-tools
     - ./gradlew wrapper --gradle-version 8.7 --distribution-type all
 
 build:
   stage: build
   needs: ["setup_android"]
   script:
-    - ./gradlew dependencies --configuration debugRuntimeClasspath
-    - ./gradlew clean --stacktrace
-    - ./gradlew assembleDebug --stacktrace --no-parallel --no-daemon
+    - ./gradlew clean assembleDebug --stacktrace --no-daemon --warning-mode all
   artifacts:
     paths:
       - app/build/outputs/apk/debug/
-    expire_in: 1 week
-  retry:
-    max: 2
-    when:
-      - runner_system_failure
-      - stuck_or_timeout_failure
+    expire_in: 7 days
