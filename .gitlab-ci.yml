@@ -4,7 +4,7 @@ variables:
   ANDROID_HOME: "/usr/local/android-sdk"
   ANDROID_SDK_TOOLS: "9477386"
   GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
-  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true"
+  TERM: "dumb"
   CI: "true"
 
 stages:
@@ -14,56 +14,44 @@ stages:
 cache:
   key: "$CI_COMMIT_REF_SLUG"
   paths:
-    - .gradle/
-    - build/
     - $ANDROID_HOME
-  policy: pull-push
+    - .gradle/wrapper
+    - .gradle/caches
 
 before_script:
   - apt-get update -qq
-  - apt-get install -y -qq wget unzip openjdk-17-jdk
+  - apt-get install -y -qq wget unzip openjdk-17-jdk expect
   - chmod +x ./gradlew
 
 setup_android:
   stage: setup
   script:
-    - mkdir -p $ANDROID_HOME
-    - mkdir -p ~/.android
+    - mkdir -p $ANDROID_HOME ~/.android
     - touch ~/.android/repositories.cfg
 
-    # Установка Command Line Tools
     - wget -q https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_TOOLS}_latest.zip -O /tmp/tools.zip
     - unzip -q /tmp/tools.zip -d $ANDROID_HOME
     - mv $ANDROID_HOME/cmdline-tools $ANDROID_HOME/latest
     - mkdir -p $ANDROID_HOME/cmdline-tools
     - mv $ANDROID_HOME/latest $ANDROID_HOME/cmdline-tools/latest
 
-    # Принятие лицензий
-    - yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+    - /bin/bash -c "
+      echo 'y' | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null 2>&1 ||
+      (echo -ne 'y\ny\ny\ny\ny\ny\ny\ny\n' | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null)
+      "
 
-    # Установка компонентов (используем стабильные версии)
-    - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+    - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" >/dev/null 2>&1 || true
+
+    - echo "sdk.dir=$ANDROID_HOME" > local.properties
     - export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
-
-    # Очистка кэша Gradle
-    - rm -rf .gradle/caches/
-
-    # Проверка версий
-    - ./gradlew --version
 
 build:
   stage: build
   needs: ["setup_android"]
   script:
-    # Очистка и сборка с диагностикой
-    - ./gradlew clean --stacktrace --no-daemon
-    - ./gradlew assembleDebug --stacktrace --no-daemon --warning-mode all --scan
+    - ./gradlew clean assembleDebug --quiet --no-daemon ||
+      ./gradlew clean assembleDebug --stacktrace --no-daemon
   artifacts:
     paths:
       - app/build/outputs/apk/debug/
     expire_in: 1 week
-  retry:
-    max: 2
-    when:
-      - runner_system_failure
-      - stuck_or_timeout_failure
