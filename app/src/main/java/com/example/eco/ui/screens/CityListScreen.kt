@@ -1,16 +1,11 @@
 package com.example.eco.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -18,21 +13,47 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.eco.City
 import com.example.eco.CityCard
+import com.example.eco.api.ApiClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CityListScreen(navController: NavController, modifier: Modifier = Modifier) {
     val cities = listOf(
-        City("Алматы", 135),
-        City("Астана", 60),
-        City("Шымкент", 52),
-        City("Костанай", 10),
-        City("Актобе", 30)
+        "Алматы", "Астана", "Шымкент", "Костанай", "Актобе",
+        "Караганда", "Павлодар", "Усть-Каменогорск", "Тараз", "Семей"
     )
 
+    var cityData by remember { mutableStateOf<List<City>>(emptyList()) }
     var searchQuery by remember { mutableStateOf("") }
+    val coroutineScope = rememberCoroutineScope()
 
-    val filteredCities = cities.filter {
+    LaunchedEffect(Unit) {
+        coroutineScope.launch {
+            val fetchedCities = mutableListOf<City>()
+            for (city in cities) {
+                withContext(Dispatchers.IO) {
+                    try {
+                        val cityResponse = ApiClient.retrofit.getCityCoordinates(city)
+                        if (cityResponse.isNotEmpty()) {
+                            val lat = cityResponse[0].lat
+                            val lon = cityResponse[0].lon
+                            val airQualityResponse = ApiClient.retrofit.getAirQuality(lat, lon)
+                            val aqi = airQualityResponse.list.firstOrNull()?.main?.aqi ?: 0
+                            fetchedCities.add(City(city, aqi))
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+            cityData = fetchedCities
+        }
+    }
+
+    val filteredCities = cityData.filter {
         it.name.lowercase().contains(searchQuery.lowercase())
     }
 
@@ -78,9 +99,7 @@ fun CityListScreen(navController: NavController, modifier: Modifier = Modifier) 
                     )
             ) {
                 items(filteredCities) { city ->
-                    AnimatedVisibility(visible = true) {
-                        CityCard(city, navController)
-                    }
+                    CityCard(city, navController)
                 }
             }
         }

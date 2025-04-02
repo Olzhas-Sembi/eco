@@ -10,9 +10,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.eco.getAirQualityAnimation
-import com.example.eco.getAirQualityDescription
-import com.example.eco.getBackgroundGradient
+import com.example.eco.utils.getAirQualityAnimation
+import com.example.eco.utils.getAirQualityDescription
+import com.example.eco.utils.getBackgroundGradient
 import com.example.eco.ui.components.AirQualityAnimation
 
 

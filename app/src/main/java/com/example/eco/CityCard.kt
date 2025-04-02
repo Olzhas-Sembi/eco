@@ -1,9 +1,7 @@
 package com.example.eco
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Card
@@ -16,6 +14,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.eco.ui.components.AirQualityAnimation
+import com.example.eco.utils.getAirQualityAnimation
+
 @Composable
 fun CityCard(city: City, navController: NavController) {
     var isVisible by remember { mutableStateOf(false) }

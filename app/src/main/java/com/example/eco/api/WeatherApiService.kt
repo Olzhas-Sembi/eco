@@ -24,14 +24,14 @@ interface WeatherApiService {
     ): AirQualityResponse
 }
 
-// JSON-модель для геокодинга
+// JSON-модели
+
 data class CityResponse(
     val name: String,
     val lat: Double,
     val lon: Double
 )
 
-// JSON-модель для загрязненности воздуха
 data class AirQualityResponse(
     val list: List<AirQualityData>
 )
@@ -44,7 +44,7 @@ data class AirQualityIndex(
     val aqi: Int
 )
 
-// Создаем Retrofit-клиент
+// Retrofit клиент
 object ApiClient {
     val retrofit: WeatherApiService by lazy {
         Retrofit.Builder()
