@@ -13,8 +13,8 @@ stages:
 setup:
   stage: setup
   script:
-    - apt-get update -yq
-    - apt-get install -yq wget unzip openjdk-17-jdk lib32z1
+    - apt-get update -y
+    - apt-get install -y wget unzip openjdk-17-jdk lib32z1
     - mkdir -p $ANDROID_HOME ~/.android
     - touch ~/.android/repositories.cfg
     - wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O /tmp/tools.zip
@@ -27,12 +27,14 @@ test:
   stage: test
   needs: ["setup"]
   script:
+    - chmod +x ./gradlew
     - ./gradlew test --no-daemon
 
 build:
   stage: build
   needs: ["setup"]
   script:
+    - chmod +x ./gradlew
     - ./gradlew assembleDebug --stacktrace --no-daemon
   artifacts:
     paths:
