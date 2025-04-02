@@ -4,6 +4,7 @@ variables:
   ANDROID_HOME: "/usr/local/android-sdk"
   ANDROID_SDK_TOOLS: "9477386"
   GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
 stages:
   - setup
@@ -18,37 +19,36 @@ cache:
     - $ANDROID_HOME
 
 before_script:
-  - apt-get update -qq && apt-get install -y -qq wget unzip openjdk-17-jdk expect
+  - apt-get update -qq && apt-get install -y -qq wget unzip openjdk-17-jdk
   - chmod +x ./gradlew
 
 setup_android:
   stage: setup
   script:
-    # Создаем необходимые директории
     - mkdir -p $ANDROID_HOME
     - mkdir -p ~/.android
+    - touch ~/.android/repositories.cfg
 
-    # Устанавливаем Android SDK
     - wget -q https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_TOOLS}_latest.zip -O /tmp/tools.zip
     - unzip -q /tmp/tools.zip -d $ANDROID_HOME
     - mv $ANDROID_HOME/cmdline-tools $ANDROID_HOME/latest
     - mkdir -p $ANDROID_HOME/cmdline-tools
     - mv $ANDROID_HOME/latest $ANDROID_HOME/cmdline-tools
 
-    # Фикс для лицензий
-    - touch ~/.android/repositories.cfg
     - yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-    # Устанавливаем компоненты
-    - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+    - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+
     - echo "sdk.dir=$ANDROID_HOME" > local.properties
     - export PATH=$PATH:$ANDROID_HOME/platform-tools
+
+    - ./gradlew --version
 
 test:
   stage: test
   needs: ["setup_android"]
   script:
-    - ./gradlew clean test
+    - ./gradlew clean test --stacktrace --warning-mode all
   artifacts:
     paths:
       - app/build/reports/tests/
@@ -57,7 +57,7 @@ build:
   stage: build
   needs: ["setup_android"]
   script:
-    - ./gradlew clean assembleDebug
+    - ./gradlew clean assembleDebug --stacktrace --warning-mode all
   artifacts:
     paths:
       - app/build/outputs/apk/debug/*.apk
