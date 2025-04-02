@@ -4,7 +4,7 @@ variables:
   ANDROID_HOME: "/usr/local/android-sdk"
   ANDROID_SDK_TOOLS: "9477386"
   GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
-  TERM: "dumb"
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true"
   CI: "true"
 
 stages:
@@ -14,13 +14,13 @@ stages:
 cache:
   key: "$CI_COMMIT_REF_SLUG"
   paths:
-    - $ANDROID_HOME
     - .gradle/wrapper
     - .gradle/caches
+    - $ANDROID_HOME
 
 before_script:
   - apt-get update -qq
-  - apt-get install -y -qq wget unzip openjdk-17-jdk expect
+  - apt-get install -y -qq wget unzip openjdk-17-jdk
   - chmod +x ./gradlew
 
 setup_android:
@@ -35,22 +35,22 @@ setup_android:
     - mkdir -p $ANDROID_HOME/cmdline-tools
     - mv $ANDROID_HOME/latest $ANDROID_HOME/cmdline-tools/latest
 
-    - /bin/bash -c "
-      echo 'y' | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null 2>&1 ||
-      (echo -ne 'y\ny\ny\ny\ny\ny\ny\ny\n' | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null)
-      "
+    - yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null 2>&1 || true
 
-    - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" >/dev/null 2>&1 || true
-
-    - echo "sdk.dir=$ANDROID_HOME" > local.properties
+    - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
     - export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+
+    - ./gradlew wrapper --gradle-version 8.7 --distribution-type all
 
 build:
   stage: build
   needs: ["setup_android"]
   script:
-    - ./gradlew clean assembleDebug --quiet --no-daemon ||
-      ./gradlew clean assembleDebug --stacktrace --no-daemon
+    - ./gradlew clean --warning-mode all
+
+    - ./gradlew assembleDebug --stacktrace --warning-mode all
+
+    - ./gradlew assembleDebug || ./gradlew assembleDebug --scan
   artifacts:
     paths:
       - app/build/outputs/apk/debug/
