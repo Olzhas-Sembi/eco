@@ -1,6 +1,11 @@
 image: openjdk:17-jdk
 
+variables:
+  ANDROID_HOME: "/usr/local/android-sdk"
+  ANDROID_SDK_TOOLS: "9477386" # Версия tools (ноябрь 2023)
+
 stages:
+  - setup
   - test
   - build
 
@@ -8,14 +13,29 @@ cache:
   paths:
     - .gradle/wrapper
     - .gradle/caches
+    - $ANDROID_HOME
 
 before_script:
   - export GRADLE_USER_HOME=$CI_PROJECT_DIR/.gradle
   - chmod +x ./gradlew
-  - echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+setup_android:
+  stage: setup
+  script:
+    - mkdir -p $ANDROID_HOME
+    - wget -q https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_TOOLS}_latest.zip -O /tmp/tools.zip
+    - unzip -q /tmp/tools.zip -d $ANDROID_HOME
+    - mv $ANDROID_HOME/cmdline-tools $ANDROID_HOME/latest
+    - mkdir -p $ANDROID_HOME/cmdline-tools
+    - mv $ANDROID_HOME/latest $ANDROID_HOME/cmdline-tools
+    - yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+    - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+    - export PATH=$PATH:$ANDROID_HOME/platform-tools
+    - echo "sdk.dir=$ANDROID_HOME" > local.properties
 
 test:
   stage: test
+  needs: ["setup_android"]
   script:
     - ./gradlew clean test
   artifacts:
@@ -24,6 +44,7 @@ test:
 
 build:
   stage: build
+  needs: ["setup_android"]
   script:
     - ./gradlew clean assembleDebug
   artifacts:
