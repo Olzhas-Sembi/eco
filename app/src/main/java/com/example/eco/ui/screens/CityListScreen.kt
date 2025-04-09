@@ -13,14 +13,16 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.eco.City
 import com.example.eco.CityCard
-import com.example.eco.api.ApiClient
+import com.example.eco.domain.repository.CityRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.koin.androidx.compose.get
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CityListScreen(navController: NavController, modifier: Modifier = Modifier) {
+    val cityRepository: CityRepository = get()
     val cities = listOf(
         "Алматы", "Астана", "Шымкент", "Костанай", "Актобе",
         "Караганда", "Павлодар", "Усть-Каменогорск", "Тараз", "Семей"
@@ -32,24 +34,10 @@ fun CityListScreen(navController: NavController, modifier: Modifier = Modifier) 
 
     LaunchedEffect(Unit) {
         coroutineScope.launch {
-            val fetchedCities = mutableListOf<City>()
-            for (city in cities) {
-                withContext(Dispatchers.IO) {
-                    try {
-                        val cityResponse = ApiClient.retrofit.getCityCoordinates(city)
-                        if (cityResponse.isNotEmpty()) {
-                            val lat = cityResponse[0].lat
-                            val lon = cityResponse[0].lon
-                            val airQualityResponse = ApiClient.retrofit.getAirQuality(lat, lon)
-                            val aqi = airQualityResponse.list.firstOrNull()?.main?.aqi ?: 0
-                            fetchedCities.add(City(city, aqi))
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
+            withContext(Dispatchers.IO) {
+                val fetched = cityRepository.fetchCityData(cities)
+                cityData = fetched
             }
-            cityData = fetchedCities
         }
     }
 
